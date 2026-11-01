@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voltline — Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#12171B">
+<style>
+  :root{
+    --paper:#EFF2F1; --card:#FFFFFF; --ink:#12171B; --steel:#5D6B75;
+    --rule:#CBD3D6; --signal:#FFC400; --live:#D93A2B; --earth:#12795B; --blue:#2E5FA3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 16px 60px}
+  .stripe{display:flex;height:5px}
+  .stripe i{flex:1}
+  .stripe i:nth-child(1){background:var(--live)}
+  .stripe i:nth-child(2){background:var(--signal)}
+  .stripe i:nth-child(3){background:var(--blue)}
+  .stripe i:nth-child(4){background:var(--earth)}
+  header{background:var(--ink);color:#fff}
+  .head-in{max-width:1040px;margin:0 auto;padding:12px 16px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .brand{font-weight:800;letter-spacing:.16em;text-transform:uppercase;font-size:15px}
+  .brand span{color:var(--signal)}
+  .sub{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8DA0AA}
+  nav{display:flex;background:var(--ink);max-width:1040px;margin:0 auto;padding:0 10px 10px;gap:6px;overflow-x:auto}
+  nav button{flex:0 0 auto;background:transparent;border:1px solid #333F48;color:#A9B8C0;font-size:11px;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;padding:9px 14px;border-radius:2px;cursor:pointer;font-family:var(--sans)}
+  nav button[aria-selected="true"]{background:var(--signal);border-color:var(--signal);color:#12171B}
+  h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--steel);margin:22px 0 8px;font-weight:800}
+  .card{background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:16px;margin-bottom:12px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{background:var(--ink);color:#fff;border-radius:3px;padding:14px}
+  .kpi .v{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1}
+  .kpi .l{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8DA0AA;margin-top:6px;font-weight:700}
+  .kpi.alert{background:var(--live)}
+  .kpi.alert .l{color:#FFD9D5}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid var(--rule);vertical-align:middle}
+  th{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);white-space:nowrap}
+  td.n{text-align:right;font-family:var(--mono);white-space:nowrap}
+  tr.tot td{font-weight:800;border-top:2px solid var(--ink)}
+  tr.grp td{background:#F4F6F6;font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel)}
+  .agent{font-family:var(--mono);font-weight:700}
+  .bar{height:7px;background:var(--rule);border-radius:4px;overflow:hidden;min-width:80px}
+  .bar i{display:block;height:100%;background:var(--earth)}
+  button.act{padding:13px 18px;border:0;border-radius:2px;background:var(--ink);color:#fff;font-weight:800;
+    letter-spacing:.1em;text-transform:uppercase;font-size:12px;cursor:pointer;font-family:var(--sans)}
+  button.act.go{background:var(--signal);color:#12171B}
+  button.act.ghost{background:#fff;color:var(--ink);border:1px solid var(--rule)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--signal);outline-offset:1px}
+  .drop{border:2px dashed var(--rule);border-radius:3px;padding:26px;text-align:center;background:#fff}
+  .drop.over{border-color:var(--signal);background:#FFFCF0}
+  .note{font-size:13px;color:var(--steel)}
+  .flag{border-radius:2px;padding:10px 12px;font-size:13px;margin-bottom:8px;background:#fff;border:1px solid var(--rule);border-left:4px solid var(--live)}
+  .flag.warnlvl{border-left-color:var(--signal)}
+  .flag .who{display:block;margin-top:4px;font-size:11px;color:var(--steel);font-family:var(--mono)}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .stale{color:var(--live);font-weight:700}
+</style>
+</head>
+<body>
+<div class="stripe"><i></i><i></i><i></i><i></i></div>
+<header>
+  <div class="head-in">
+    <div>
+      <div class="brand">Net<span>Survey</span></div>
+      <div class="sub">Supervisor tracker</div>
+    </div>
+  </div>
+  <nav role="tablist">
+    <button role="tab" aria-selected="true" data-tab="team">Team tracking</button>
+    <button role="tab" aria-selected="false" data-tab="summary">Transformer summary</button>
+    <button role="tab" aria-selected="false" data-tab="issues">Issues</button>
+    <button role="tab" aria-selected="false" data-tab="merge">Merge and export</button>
+  </nav>
+</header>
+
+<div class="wrap">
+  <h2>Load the files you received</h2>
+  <div class="card" style="padding:0;border:0;background:transparent">
+    <label class="drop" id="drop" for="filein" style="display:block;cursor:pointer">
+      <b>Drop the .wkdc.json files here</b>
+      <div class="note" style="margin-top:6px">or click to choose them. You can load several at once, and reloading a surveyor replaces their previous file.</div>
+      <input type="file" id="filein" accept=".json,.wkdc.json,application/json" multiple hidden>
+    </label>
+    <div class="row" style="margin-top:10px">
+      <button class="act ghost" id="btn_clear">Clear the tracker</button>
+      <span class="note" id="loadinfo" style="align-self:center"></span>
+    </div>
+  </div>
+
+  <section id="tab-team">
+    <div class="kpis" id="kpis"></div>
+    <h2>By surveyor</h2>
+    <div class="card" id="agents"></div>
+    <h2>By transformer</h2>
+    <div class="card" id="zones"></div>
+  </section>
+
+  <section id="tab-summary" hidden>
+    <h2>Consolidated summary</h2>
+    <div class="card">
+      <div class="row" style="margin-bottom:12px">
+        <select id="zonesel" style="padding:9px;border:1px solid var(--rule);border-radius:2px;font-size:15px"></select>
+      </div>
+      <div id="summary"></div>
+      <button class="act ghost" id="ex_summary" style="margin-top:12px">Download this summary as CSV</button>
+    </div>
+  </section>
+
+  <section id="tab-issues" hidden>
+    <h2>Issues to correct</h2>
+    <div id="anom"></div>
+  </section>
+
+  <section id="tab-merge" hidden>
+    <h2>Consolidated export</h2>
+    <div class="card">
+      <p class="note" style="margin-top:0">One file per sheet, all surveyors together, with the same headers as your workbook. The Agent column shows who captured each row.</p>
+      <div class="row" id="expbtns"></div>
+    </div>
+    <h2>Utility Network export</h2>
+    <div class="card">
+      <p class="note" style="margin-top:0">One file per REG Field Maps layer, whole team combined, with the Utility Network field names.</p>
+      <div class="row" id="unbtns"></div>
+    </div>
+    <h2>Google Earth</h2>
+    <div class="card">
+      <p class="note" style="margin-top:0">All surveyors combined on the real satellite view. Poles, lines, transformers and customers, opened in Google Earth.</p>
+      <button class="act go" id="ex_kml_all">Create Google Earth file (KML)</button>
+    </div>
+    <h2>Backup</h2>
+    <div class="card">
+      <p class="note" style="margin-top:0">Full backup of the tracker, to keep or reload later.</p>
+      <button class="act ghost" id="ex_backup">Download backup</button>
+    </div>
+  </section>
+</div>
+
+<script>
+var ASSEMBLY=['ABC Suspension Assembly (0\u00B0 - 30\u00B0)','ABC Strain Assembly (30\u00B0 - 60\u00B0)','ABC Strain Assembly (60\u00B0 - 90\u00B0)',
+  'T-Off Assembly from Intermediate','T-Off Assembly from Strain','Cross Intermediate-Intermediate Assembly',
+  'Cross Intermediate-Strain Assembly','Cross strain-Strain Assembly','ABC Terminal Assembly'];
+var COND_LABEL={
+  '1x25+54.6mm2':'1x25+54.6mm2 - 25 mm2 1phase ABC','1x35+54.6mm2':'1x35+54.6mm2 - 35 mm2 1phase ABC',
+  '3x25+54.6mm2':'3x25+54.6mm2 - 25 mm2 3phase ABC','3x35+54.6mm2':'3x35+54.6mm2 - 35 mm2 3phase ABC',
+  '3x50+54.6mm2':'3x50+54.6mm2 - 50 mm2 3phase ABC','3x70+54.6mm2':'3x70+54.6mm2 - 70 mm2 3phase ABC',
+  '3x95+54.6mm2':'3x95+54.6mm2 - 95 mm2 3phase ABC','3x120+54.6mm2':'3x120+54.6mm2 - 120 mm2 3phase ABC'};
+var SPAN_MAX={'1x25+54.6mm2':55,'1x35+54.6mm2':55,'3x25+54.6mm2':50,'3x35+54.6mm2':50,'3x50+54.6mm2':47,
+  '3x70+54.6mm2':44,'3x95+54.6mm2':45,'3x120+54.6mm2':45};
+var LBL={pole:'Poles',cust:'Customers',span:'Spans',trf:'Transformers'};
+var SHEET={pole:'Pole List',cust:'Customer List',span:'LV Lines',trf:'Transformer'};
+var UN_LAYER={pole:'Structure Junction',cust:'Electric Junction',span:'Electric Line',trf:'Electric Device'};
+var UN_FIELDS={
+  pole:['Asset group','Asset type','Pole Structure','Height','Mechanical Strength (dAN)','Wooden Pole Size',
+    'Number of Circuit','Append Cable','Appended Cable Type (If Yes)','Insulator Type','Service Pole',
+    'Year Of Commissioning','Lifecycle Status','Construction Status','Supported subnetwork name'],
+  cust:['Asset group','Asset type','Lifecycle Status','Construction Status','Supported subnetwork name'],
+  span:['Asset group','Asset type','Voltage Level (kV)','Conductor size(mm2)','Conductor Type','Phases',
+    'Rated Current (A)','Conductor Insulation','Conductor material','Is connected','Lifecycle Status',
+    'Construction Status','Supported subnetwork name'],
+  trf:['Asset group','Asset type','Is subnetwork controller','Subnetwork controller name','Is connected',
+    'Lifecycle Status','Construction Status','Supported subnetwork name']
+};
+var HEADERS={
+  pole:['TRF_Name','Structure','Height_m','Pole_Numbe','X','Y','Wooden_Pol','STAY_ASSEM','Flaying_st','Earthing','Assembly','From_Pole','Conductor','Span_Length_m','District','Sector','Cell','Village','Agent','Date','Time','Photo_Time','Accuracy_m'],
+  cust:['POLES','Pole_X','Pole_Y','HSE No.','Horizontal distance of cable from pole to house','Distance source','REAL LENGTH OF SERVICE CABLE','FIRST NAME','Second Name','Category','TYPE OF CUSTOMMER','Phase','House_X','House_Y','READYBOARD','Meter_number','ID','UPI','Phone_number','Meter Type','Service_Cable','Comment','District','Sector','Cell','Village','Agent','Date','Time','Photo_Time','Accuracy_m'],
+  span:['Span_ID','From_Pole','To_Pole','Conductor','Length_m','From_X','From_Y','To_X','To_Y','District','Sector','Cell','Village','Agent','Date','Time'],
+  trf:['TRF_Name','MV_Feeder','Pole_Number','Capacity_kVA','Phases','Support','Serial_No','Primary_kV','LV_CB_Amp','MV_Fuse_A','MV_Earth_Ohm','LV_Earth_Ohm','Manufacturer','Year','X','Y','Notes','District','Sector','Cell','Village','Agent','Date','Time','Photo_Time','Accuracy_m']
+};
+var packs={};
+var KEY='wkdc.tracker.v1';
+function $(s){return document.querySelector(s);}
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function num(v){var n=parseFloat(v);return isFinite(n)?n:null;}
+function pad2(n){return String(n).padStart(2,'0');}
+function locDate(t){var d=new Date(t);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
+function locTime(t){var d=new Date(t);return pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds());}
+function all(){var r=[];Object.keys(packs).forEach(function(k){r=r.concat(packs[k].records||[]);});return r;}
+function ofType(t){return t==='span'?spans():all().filter(function(r){return r.type===t;});}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function poleIndex(){var i={};all().filter(function(r){return r.type==='pole';}).forEach(function(p){i[p.props['Pole_Numbe']]=p;});return i;}
+function spans(){
+  var idx=poleIndex(), out=[];
+  all().filter(function(r){return r.type==='pole';}).forEach(function(p){
+    var from=p.props['From_Pole']; if(!from) return;
+    var a=idx[from]; if(!a) return;
+    out.push({Span_ID:from+'-'+p.props['Pole_Numbe'],From_Pole:from,To_Pole:p.props['Pole_Numbe'],
+      Conductor:p.props['Conductor']||'',Length_m:dist(a,p),from:a,pole:p});
+  });
+  return out;
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(packs));}catch(e){}}
+function load(){try{var v=localStorage.getItem(KEY);if(v)packs=JSON.parse(v);}catch(e){}}
+
+Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(b){
+  b.onclick=function(){
+    Array.prototype.forEach.call(document.querySelectorAll('nav button'),function(x){x.setAttribute('aria-selected',x===b);});
+    ['team','summary','issues','merge'].forEach(function(t){$('#tab-'+t).hidden=(t!==b.dataset.tab);});
+    render();
+  };
+});
+
+/* ---------- loading ---------- */
+var drop=$('#drop');
+['dragenter','dragover'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.add('over');});});
+['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){ev.preventDefault();drop.classList.remove('over');});});
+drop.addEventListener('drop',function(ev){handle(ev.dataTransfer.files);});
+$('#filein').onchange=function(e){handle(e.target.files);};
+function handle(files){
+  var done=0, ok=0, bad=[];
+  if(!files.length) return;
+  Array.prototype.forEach.call(files,function(f){
+    var rd=new FileReader();
+    rd.onload=function(){
+      try{
+        var p=JSON.parse(rd.result);
+        if(!p.records||!p.agent) throw 0;
+        packs[p.agent.code||f.name]=p; ok++;
+      }catch(e){ bad.push(f.name); }
+      if(++done===files.length){ save(); render();
+        $('#loadinfo').textContent=ok+' file'+(ok===1?'':'s')+' loaded'+(bad.length?', could not read: '+bad.join(', '):'');
+      }
+    };
+    rd.readAsText(f);
+  });
+}
+$('#btn_clear').onclick=function(){ if(!confirm('Clear the tracker? The surveyors\u2019 own files are not affected.'))return;
+  packs={}; save(); render(); $('#loadinfo').textContent=''; };
+
+/* ---------- render ---------- */
+function render(){ ANOM=null; kpis(); agents(); zones(); summary(); issues(); merge(); }
+
+function kpis(){
+  var errs=anomalyList().filter(function(x){return x[2];}).length;
+  var got=Object.keys(packs).length;
+  var html=[
+    ['Files received',got+' / 8',''],
+    ['Poles',ofType('pole').length,''],
+    ['Customers',ofType('cust').length,''],
+    ['Spans',ofType('span').length,''],
+    ['Blocking issues',errs,errs?'alert':'']
+  ].map(function(k){return '<div class="kpi '+k[2]+'"><div class="v">'+k[1]+'</div><div class="l">'+k[0]+'</div></div>';}).join('');
+  $('#kpis').innerHTML=html;
+}
+
+function agents(){
+  var codes=Object.keys(packs).sort();
+  if(!codes.length){ $('#agents').innerHTML='<p class="note" style="margin:0">No file loaded. Ask each surveyor to tap "Create my send file" and share it with you.</p>'; return; }
+  var max=0; codes.forEach(function(c){max=Math.max(max,(packs[c].records||[]).length);});
+  var now=Date.now(), anom=anomalyList();
+  var rows=codes.map(function(c){
+    var p=packs[c], R=p.records||[];
+    var last=R.reduce(function(m,r){return r.time>m?r.time:m;},'');
+    var days=last?Math.floor((now-new Date(last).getTime())/86400000):null;
+    var errs=anom.filter(function(x){return x[3]===c&&x[2];}).length;
+    var cnt=function(t){return R.filter(function(r){return r.type===t;}).length;};
+    return '<tr><td><span class="agent">'+esc(c)+'</span><div class="note">'+esc(p.agent.name||'')+'</div></td>'
+      +'<td>'+esc((p.zone&&p.zone.trf)||'')+'</td>'
+      +'<td class="n">'+cnt('pole')+'</td><td class="n">'+cnt('cust')+'</td><td class="n">'+cnt('span')+'</td>'
+      +'<td style="min-width:110px"><div class="bar"><i style="width:'+(max?Math.round(R.length/max*100):0)+'%"></i></div>'
+        +'<div class="note" style="font-family:var(--mono)">'+R.length+'</div></td>'
+      +'<td>'+esc(vill(R))+'</td>'
+      +'<td class="'+(days!==null&&days>2?'stale':'')+'">'+(last?locDate(last)+' '+locTime(last)+(days>2?' \u00B7 '+days+' d':''):'\u2014')+'</td>'
+      +'<td class="n" style="color:'+(errs?'var(--live)':'var(--steel)')+'">'+errs+'</td></tr>';
+  }).join('');
+  var missing=[];
+  for(var i=1;i<=8;i++){var c='SURV-'+String(i).padStart(2,'0'); if(!packs[c]) missing.push(c);}
+  $('#agents').innerHTML='<table><tr><th>Surveyor</th><th>Zone</th><th>Poles</th><th>Customers</th><th>Spans</th><th>Volume</th><th>Villages</th><th>Last point</th><th>Issues</th></tr>'+rows+'</table>'
+    +(missing.length?'<p class="note" style="margin-bottom:0">Not received yet: <b>'+missing.join(', ')+'</b></p>':'');
+}
+
+function vill(R){
+  var v={}; R.forEach(function(r){ if(r.props&&r.props['Village']) v[r.props['Village']]=1; });
+  var ks=Object.keys(v);
+  return ks.length>2 ? ks.slice(0,2).join(', ')+' +'+(ks.length-2) : ks.join(', ');
+}
+function zoneOf(code){ var p=packs[code]; return p&&p.zone?(p.zone.trf||'unnamed'):'unnamed'; }
+function zones(){
+  var z={};
+  Object.keys(packs).forEach(function(c){
+    var k=zoneOf(c); z[k]=z[k]||{agents:[],pole:0,cust:0,span:0,earth:0};
+    z[k].agents.push(c);
+    (packs[c].records||[]).forEach(function(r){
+      if(z[k][r.type]!==undefined) z[k][r.type]++;
+      if(r.type==='pole'&&r.props['Earthing']==='1') z[k].earth++;
+    });
+  });
+  var ks=Object.keys(z);
+  if(!ks.length){ $('#zones').innerHTML='<p class="note" style="margin:0">\u2014</p>'; return; }
+  $('#zones').innerHTML='<table><tr><th>Transformer</th><th>Surveyors</th><th>Poles</th><th>Customers</th><th>Spans</th><th>Earthed poles</th></tr>'
+    +ks.map(function(k){var v=z[k];
+      return '<tr><td><b>'+esc(k)+'</b></td><td class="agent">'+v.agents.join(', ')+'</td>'
+        +'<td class="n">'+v.pole+'</td><td class="n">'+v.cust+'</td><td class="n">'+v.span+'</td>'
+        +'<td class="n">'+v.earth+' / '+v.pole+'</td></tr>';}).join('')+'</table>';
+}
+
+/* ---------- consolidated summary ---------- */
+function summary(){
+  var sel=$('#zonesel'), zs={};
+  Object.keys(packs).forEach(function(c){zs[zoneOf(c)]=1;});
+  var ks=Object.keys(zs), cur=sel.value;
+  sel.innerHTML='<option value="">All transformers</option>'+ks.map(function(k){return '<option'+(k===cur?' selected':'')+'>'+esc(k)+'</option>';}).join('');
+  sel.onchange=summary;
+  var codes=Object.keys(packs).filter(function(c){return !sel.value||zoneOf(c)===sel.value;});
+  var R=[]; codes.forEach(function(c){R=R.concat(packs[c].records||[]);});
+  var P=R.filter(function(r){return r.type==='pole';}), C=R.filter(function(r){return r.type==='cust';});
+  var keep={}; P.forEach(function(p){keep[p.props['Pole_Numbe']]=1;});
+  var S=spans().filter(function(sp){return keep[sp.To_Pole];});
+  var svc={},cond={},cls={},asm={},typ={};
+  C.forEach(function(c){
+    var s=c.props['Service_Cable']||'not recorded';
+    svc[s]=(svc[s]||0)+(num(c.props['REAL LENGTH OF SERVICE CABLE'])||0);
+    var t=c.props['TYPE OF CUSTOMMER']||'not recorded'; typ[t]=(typ[t]||0)+1;
+  });
+  S.forEach(function(s){var c=s.props.Conductor||'not recorded'; cond[c]=(cond[c]||0)+(num(s.props.Length_m)||0);});
+  P.forEach(function(p){var c=p.props['Wooden_Pol']||'not recorded'; cls[c]=(cls[c]||0)+1;
+    var a=p.props['Assembly']||'not recorded'; asm[a]=(asm[a]||0)+1;});
+  function sum(o){var t=0;for(var k in o)t+=o[k];return t;}
+  function f1(v){return (Math.round((v||0)*10)/10).toFixed(1);}
+  function row(a,b,c,d,cl){return '<tr'+(cl?' class="'+cl+'"':'')+'><td>'+a+'</td><td>'+b+'</td><td>'+c+'</td><td class="n">'+d+'</td></tr>';}
+  function ltr(i){return String.fromCharCode(97+i);}
+  var trfName=sel.value||'All transformers';
+  var h='<table><tr><th></th><th>Description</th><th>Unit</th><th class="n">Quantity</th></tr>';
+  h+=row('','<b>TRANSFORMER SURVEYING SUMMARY</b>','','','grp');
+  h+=row('','TRF '+esc(trfName.split(' \u00B7')[0]),'','','');
+  // 1 length of cable: service, then LV lines by conductor
+  h+=row('1','Length of cable','','','grp');
+  var si=0;
+  Object.keys(svc).sort().forEach(function(k){ h+=row(ltr(si++),'Service Cable('+esc(k)+')','m',f1(svc[k])); });
+  h+=row('','Total Service Cable','m',f1(sum(svc)),'tot');
+  var ci=0;
+  Object.keys(cond).sort().forEach(function(k){ h+=row(ltr(ci++),esc(COND_LABEL[k]||k),'m',f1(cond[k])); });
+  h+=row('','Total Length of LV Lines','m',f1(sum(cond)),'tot');
+  // 2 poles by class
+  h+=row('2','Number of LV poles','','','grp');
+  var pi=0;
+  ['S100','S140','S190','S225','S255'].forEach(function(k){ if(cls[k]) h+=row(ltr(pi++),k,'pcs',cls[k]); });
+  Object.keys(cls).forEach(function(k){ if(['S100','S140','S190','S225','S255'].indexOf(k)<0) h+=row(ltr(pi++),esc(k),'pcs',cls[k]); });
+  h+=row('','Total Length of LV POLES','pcs',P.length,'tot');
+  // 3 infrastructures = customer types
+  h+=row('3','Infrastructures','','','grp');
+  var ii=0;
+  Object.keys(typ).sort().forEach(function(k){ h+=row(ltr(ii++),esc(k.charAt(0)+k.slice(1).toLowerCase()),'pcs',typ[k]); });
+  h+=row('4','TOTAL Customers','pcs',C.length,'tot');
+  // 4 assemblies, all nine in order
+  h+=row('4','Assemblies','','','grp');
+  ASSEMBLY.forEach(function(k,i){ h+=row(ltr(i),esc(k),'pcs',asm[k]||0); });
+  h+=row('','Total number of poles','pcs',P.length,'tot');
+  // 5-10 extras
+  h+=row('5','Earthing','pcs',P.filter(function(p){return p.props['Earthing']==='1';}).length);
+  h+=row('6','overhead stay','pcs',P.filter(function(p){return p.props['Flaying_st']==='1';}).length);
+  h+=row('7','Stay','pcs',P.filter(function(p){return p.props['STAY_ASSEM']==='1';}).length);
+  h+=row('8','single Phase','pcs',C.filter(function(c){return c.props['Meter Type']==='SINGLE PHASE';}).length);
+  h+=row('9','Three Phase','pcs',C.filter(function(c){return c.props['Meter Type']==='THREE PHASE';}).length);
+  h+=row('10','ReadyBord','pcs',C.filter(function(c){return c.props['READYBOARD']==='1';}).length);
+  h+='</table>';
+  $('#summary').innerHTML=h;
+}
+
+/* ---------- issues, including across surveyors ---------- */
+var ANOM=null;
+function anomalyList(){ if(!ANOM) ANOM=computeIssues(); return ANOM; }
+function computeIssues(){
+  var out=[], A=all();
+  var P=A.filter(function(r){return r.type==='pole';}), C=A.filter(function(r){return r.type==='cust';}), S=spans();
+  function add(m,who,hard,code){out.push([m,who||'',hard?1:0,code||'']);}
+  var byNo={}; P.forEach(function(p){var n=p.props['Pole_Numbe'];(byNo[n]=byNo[n]||[]).push(p);});
+
+  Object.keys(byNo).forEach(function(n){
+    var g=byNo[n]; if(g.length<2) return;
+    var ags={}; g.forEach(function(p){ags[p.agent]=1;});
+    var codes=Object.keys(ags);
+    if(codes.length>1) add('Pole '+n+' was captured by '+codes.join(' and ')+'. Only one should keep it.',codes.join(', '),1,codes[0]);
+    else add('Pole '+n+' is captured '+g.length+' times by '+codes[0]+'.',codes[0],1,codes[0]);
+  });
+  var meters={}; C.forEach(function(c){var m=c.props['Meter_number']; if(m)(meters[m]=meters[m]||[]).push(c);});
+  Object.keys(meters).forEach(function(m){
+    var g=meters[m]; if(g.length<2) return;
+    var ags={}; g.forEach(function(c){ags[c.agent]=1;});
+    add('Meter '+m+' appears '+g.length+' times ('+Object.keys(ags).join(', ')+').',Object.keys(ags).join(', '),1,g[0].agent);
+  });
+  for(var i=0;i<P.length;i++) for(var j=i+1;j<P.length;j++){
+    if(P[i].agent===P[j].agent) continue;
+    if(dist(P[i],P[j])<3) add('Two poles less than 3 m apart: '+P[i].props['Pole_Numbe']+' ('+P[i].agent+') and '+P[j].props['Pole_Numbe']+' ('+P[j].agent+'). Likely the same pole captured twice.',P[i].agent+', '+P[j].agent,1,P[i].agent);
+  }
+  C.forEach(function(c){
+    var p=byNo[c.props['POLES']]&&byNo[c.props['POLES']][0];
+    if(!p){ add('Customer '+c.props['HSE No.']+' points to pole '+(c.props['POLES']||'(blank)')+', which is in nobody\u2019s file.',c.agent,1,c.agent); return; }
+    var h=num(c.props['Horizontal distance of cable from pole to house']), d=dist(p,c);
+    if(h!==null&&Math.abs(d-h)>15) add('Customer '+c.props['HSE No.']+': '+h.toFixed(1)+' m measured, '+d.toFixed(1)+' m between the coordinates.',c.agent,1,c.agent);
+    if(c.props['ID']&&!/^1\d{15}$/.test(c.props['ID'])) add('Customer '+c.props['HSE No.']+': malformed national ID.',c.agent,1,c.agent);
+    if(c.props['Phone_number']&&!/^7[2389]\d{7}$/.test(c.props['Phone_number'])) add('Customer '+c.props['HSE No.']+': malformed phone number.',c.agent,0,c.agent);
+    if(!c.props['UPI']) add('Customer '+c.props['HSE No.']+': UPI missing.',c.agent,0,c.agent);
+    if(p.props['Earthing']!=='1') add('Pole '+p.props['Pole_Numbe']+' carries service connections but is not earthed.',p.agent,1,p.agent);
+  });
+  S.forEach(function(sp){
+    var c=sp.Conductor, ag=sp.pole.agent;
+    if(c&&SPAN_MAX[c]&&sp.Length_m>SPAN_MAX[c]) add('Span '+sp.Span_ID+': '+sp.Length_m.toFixed(1)+' m, limit '+SPAN_MAX[c]+' m.',ag,1,ag);
+    if(!c) add('Span '+sp.Span_ID+' has no conductor recorded on pole '+sp.To_Pole+'.',ag,1,ag);
+  });
+  P.forEach(function(p){
+    var f=p.props['From_Pole'];
+    if(f&&!poleIndex()[f]) add('Pole '+p.props['Pole_Numbe']+' is strung from '+f+', which is in nobody\u2019s file.',p.agent,1,p.agent);
+  });
+  A.forEach(function(r){ if(!r.manual&&r.acc>10)
+    add(LBL[r.type]+' '+(r.props['Pole_Numbe']||r.props['HSE No.']||r.props['Span_ID']||'')+' captured at \u00B1'+r.acc.toFixed(1)+' m.',r.agent,0,r.agent); });
+  return out;
+}
+function issues(){
+  var out=anomalyList();
+  if(!out.length){ $('#anom').innerHTML='<div class="card note">Nothing to report so far.</div>'; return; }
+  var hard=out.filter(function(o){return o[2];}).length;
+  $('#anom').innerHTML='<div class="card note">'+out.length+' issues, '+hard+' of them blocking.</div>'
+    +out.slice().sort(function(a,b){return b[2]-a[2];}).map(function(f){
+      return '<div class="flag'+(f[2]?'':' warnlvl')+'">'+esc(f[0])+'<span class="who">'+esc(f[1])+'</span></div>';}).join('');
+}
+
+/* ---------- merge and export ---------- */
+function photoStamp(r){ return r.photoTime?(locDate(r.photoTime)+' '+locTime(r.photoTime)):''; }
+function accStamp(r){ return r.manual?'manual':(r.acc!=null?Number(r.acc).toFixed(1):''); }
+function rowFor(type,r,poleIndex){
+  var p=r.props, d=locDate(r.time), h=locTime(r.time);
+  var LOC=['District','Sector','Cell','Village'].map(function(k){return p[k];});
+  if(type==='cust'){
+    var pole=poleIndex[p['POLES']];
+    return [p['POLES'], pole?pole.x.toFixed(8):'', pole?pole.y.toFixed(8):'', p['HSE No.'],
+      p['Horizontal distance of cable from pole to house'], p['Distance source'], p['REAL LENGTH OF SERVICE CABLE'],
+      p['FIRST NAME'], p['Second Name'], p['Category'], p['TYPE OF CUSTOMMER'], p['Phase'], r.x.toFixed(8), r.y.toFixed(8),
+      p['READYBOARD'], p['Meter_number'], p['ID'], p['UPI'], p['Phone_number'], p['Meter Type'], p['Service_Cable'], p['Comment']]
+      .concat(LOC).concat([r.agent, d, h, photoStamp(r), accStamp(r)]);
+  }
+  if(type==='pole') return ['TRF_Name','Structure','Height_m','Pole_Numbe'].map(function(k){return p[k];})
+    .concat([r.x.toFixed(8),r.y.toFixed(8)])
+    .concat(['Wooden_Pol','STAY_ASSEM','Flaying_st','Earthing','Assembly','From_Pole','Conductor','Span_Length_m'].map(function(k){return p[k];}))
+    .concat(LOC).concat([r.agent,d,h,photoStamp(r),accStamp(r)]);
+  return ['TRF_Name','MV_Feeder','Pole_Number','Capacity_kVA','Phases','Support','Serial_No','Primary_kV','LV_CB_Amp','MV_Fuse_A','MV_Earth_Ohm','LV_Earth_Ohm','Manufacturer','Year'].map(function(k){return p[k];})
+    .concat([r.x.toFixed(8),r.y.toFixed(8),p['Notes']]).concat(LOC).concat([r.agent,d,h,photoStamp(r),accStamp(r)]);
+}
+var P2_CUST_HEADER=['NO','Pole N0','HOUSE NO','Cable Length','First Name','Last Name',
+  'Village','Cell','Sector','Category','ID','Meter Number','UPI/No Parcel','phone number',
+  'Phase','Transformer','Surveyor','Comment'];
+function expP2Cust(){
+  function q(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+  var rows=ofType('cust').map(function(r,i){ var p=r.props;
+    var trf=''; try{ var pk=Object.keys(packs).filter(function(c){return (packs[c].records||[]).indexOf(r)>=0;})[0]; trf=pk&&packs[pk].zone?packs[pk].zone.trf:''; }catch(e){}
+    return [String(i+1), p['POLES'], p['HSE No.'], p['REAL LENGTH OF SERVICE CABLE'],
+      p['FIRST NAME'], p['Second Name'], p['Village'], p['Cell'], p['Sector'],
+      p['Category']||p['TYPE OF CUSTOMMER'], p['ID'], p['Meter_number'], p['UPI'], p['Phone_number'],
+      p['Phase']||p['Meter Type'], trf, r.agent, p['Comment']||''].map(q).join(',');
+  });
+  dl('MERGED_CustomerList_'+stamp()+'.csv','sep=,\n'+P2_CUST_HEADER.map(q).join(',')+'\n'+rows.join('\n'),'text/csv');
+}
+function merge(){
+  $('#expbtns').innerHTML=Object.keys(LBL).map(function(t){
+    var n=ofType(t).length;
+    return n?'<button class="act ghost" data-t="'+t+'">'+SHEET[t]+' ('+n+')</button>':'';
+  }).join('')||'<p class="note" style="margin:0">Nothing to export.</p>';
+  var nc=ofType('cust').length;
+  if(nc){ $('#expbtns').insertAdjacentHTML('afterbegin','<button class="act go" id="exp_p2cust">Customer list \u2014 Phase 2 format ('+nc+')</button>'); }
+  var pb=$('#exp_p2cust'); if(pb) pb.onclick=expP2Cust;
+  Array.prototype.forEach.call($('#expbtns').querySelectorAll('[data-t]'),function(b){b.onclick=function(){exp(b.dataset.t);};});
+  $('#unbtns').innerHTML=Object.keys(LBL).map(function(t){
+    var n=ofType(t).length;
+    return n?'<button class="act ghost" data-un="'+t+'">'+UN_LAYER[t]+' ('+n+')</button>':'';
+  }).join('')||'<p class="note" style="margin:0">Nothing to export.</p>';
+  Array.prototype.forEach.call($('#unbtns').querySelectorAll('[data-un]'),function(b){b.onclick=function(){expUn(b.dataset.un);};});
+}
+function expUn(t){
+  function q0(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+  if(t==='span'){
+    var cols0=['Layer'].concat(UN_FIELDS.span).concat(['District','Sector','Cell','Village','X','Y','Latitude','Longitude','Agent','Date','Time']);
+    var RATED={'1x25+54.6mm2':'110','1x35+54.6mm2':'135','3x25+54.6mm2':'110','3x35+54.6mm2':'135',
+      '3x50+54.6mm2':'160','3x70+54.6mm2':'210','3x95+54.6mm2':'240','3x120+54.6mm2':'300'};
+    var rows0=spans().map(function(sp){
+      var b=sp.pole, p=b.props, m=(sp.Conductor||'').match(/^(\d)x(\d+)/);
+      return ['Electric Line','Low Voltage Overhead Conductor','','0.4',m?m[2]:'','ABC',
+        m?(m[1]==='3'?'Three phase':'Single phase'):'',RATED[sp.Conductor]||'','XLPE','Aluminium','Yes','','',p['TRF_Name']||'',
+        p['District'],p['Sector'],p['Cell'],p['Village'],
+        b.x.toFixed(8),b.y.toFixed(8),(b.lat==null?'':b.lat.toFixed(8)),(b.lon==null?'':b.lon.toFixed(8)),
+        b.agent,locDate(b.time),locTime(b.time)].map(q0).join(',');
+    });
+    dl('MERGED_UN_ElectricLine_'+stamp()+'.csv',cols0.map(q0).join(',')+'\n'+rows0.join('\n'),'text/csv');
+    return;
+  }
+  var un=UN_FIELDS[t];
+  var cols=['Layer'].concat(un).concat(['District','Sector','Cell','Village','X','Y','Latitude','Longitude','Agent','Date','Time']);
+  function q(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+  var rows=ofType(t).map(function(r){
+    return [UN_LAYER[t]].concat(un.map(function(k){return r.props[k];}))
+      .concat(['District','Sector','Cell','Village'].map(function(k){return r.props[k];}))
+      .concat([r.x.toFixed(8),r.y.toFixed(8),(r.lat==null?'':r.lat.toFixed(8)),(r.lon==null?'':r.lon.toFixed(8)),r.agent,locDate(r.time),locTime(r.time)])
+      .map(q).join(',');
+  });
+  dl('MERGED_UN_'+UN_LAYER[t].replace(/ /g,'')+'_'+stamp()+'.csv', cols.map(q).join(',')+'\n'+rows.join('\n'),'text/csv');
+}
+function dl(name,text,mime){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+text],{type:mime})); a.download=name; a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},4000);
+}
+function stamp(){return new Date().toISOString().slice(0,10).replace(/-/g,'');}
+function spanRows(){
+  return spans().map(function(sp){
+    var a=sp.from, b=sp.pole, p=b.props;
+    return [sp.Span_ID,sp.From_Pole,sp.To_Pole,sp.Conductor,sp.Length_m.toFixed(3),
+      a.x.toFixed(8),a.y.toFixed(8),b.x.toFixed(8),b.y.toFixed(8),
+      p['District'],p['Sector'],p['Cell'],p['Village'],b.agent,locDate(b.time),locTime(b.time)];
+  });
+}
+function exp(t){
+  var idx=poleIndex();
+  function q(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+  var rows=(t==='span'?spanRows():ofType(t).map(function(r){return rowFor(t,r,idx);})).map(function(a){return a.map(q).join(',');});
+  dl('MERGED_'+SHEET[t].replace(/ /g,'')+'_'+stamp()+'.csv', HEADERS[t].map(q).join(',')+'\n'+rows.join('\n'),'text/csv');
+}
+function kmlEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function buildKMLall(){
+  var idx=poleIndex();
+  var P=[]; Object.keys(packs).forEach(function(c){(packs[c].records||[]).forEach(function(r){P.push(r);});});
+  var poles=P.filter(function(r){return r.type==='pole';});
+  var custs=P.filter(function(r){return r.type==='cust';});
+  var trfs=P.filter(function(r){return r.type==='trf';});
+  var parts=['<?xml version="1.0" encoding="UTF-8"?>','<kml xmlns="http://www.opengis.net/kml/2.2"><Document>','<name>Voltline all surveyors</name>'];
+  parts.push('<Style id="pole"><IconStyle><color>ff759b8b</color><scale>0.9</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>');
+  parts.push('<Style id="trf"><IconStyle><color>ff2b3ad9</color><scale>1.2</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/electronics.png</href></Icon></IconStyle></Style>');
+  parts.push('<Style id="cust"><IconStyle><color>ff5b7912</color><scale>0.8</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/homegardenbusiness.png</href></Icon></IconStyle></Style>');
+  parts.push('<Style id="line"><LineStyle><color>ffa35f2e</color><width>3</width></LineStyle></Style>');
+  parts.push('<Folder><name>LV lines</name>');
+  spans().forEach(function(sp){ var a=sp.from,b=sp.pole; if(!a||!b) return;
+    parts.push('<Placemark><name>'+kmlEsc(sp.Span_ID)+'</name><description>'+kmlEsc((sp.Conductor||'')+' '+sp.Length_m.toFixed(1)+' m \u00B7 '+(b.agent||''))+'</description><styleUrl>#line</styleUrl><LineString><tessellate>1</tessellate><coordinates>'
+      +a.lon.toFixed(8)+','+a.lat.toFixed(8)+',0 '+b.lon.toFixed(8)+','+b.lat.toFixed(8)+',0</coordinates></LineString></Placemark>');
+  });
+  parts.push('</Folder><Folder><name>Poles</name>');
+  poles.forEach(function(p){ parts.push('<Placemark><name>'+kmlEsc(p.props['Pole_Numbe']||'pole')+'</name><description>'+kmlEsc((p.props['Wooden_Pol']||'')+' \u00B7 '+(p.agent||''))+'</description><styleUrl>#pole</styleUrl><Point><coordinates>'+p.lon.toFixed(8)+','+p.lat.toFixed(8)+',0</coordinates></Point></Placemark>'); });
+  parts.push('</Folder><Folder><name>Transformers</name>');
+  trfs.forEach(function(t){ parts.push('<Placemark><name>'+kmlEsc(t.props['TRF_Name']||'TRF')+'</name><styleUrl>#trf</styleUrl><Point><coordinates>'+t.lon.toFixed(8)+','+t.lat.toFixed(8)+',0</coordinates></Point></Placemark>'); });
+  parts.push('</Folder><Folder><name>Customers</name>');
+  custs.forEach(function(c){ parts.push('<Placemark><name>'+kmlEsc(c.props['HSE No.']||'HH')+'</name><description>'+kmlEsc((c.props['Meter_number']||'')+' \u00B7 '+(c.agent||''))+'</description><styleUrl>#cust</styleUrl><Point><coordinates>'+c.lon.toFixed(8)+','+c.lat.toFixed(8)+',0</coordinates></Point></Placemark>'); });
+  parts.push('</Folder></Document></kml>');
+  return parts.join('\n');
+}
+$('#ex_backup').onclick=function(){ dl('WKDC_backup_'+stamp()+'.json', JSON.stringify(packs), 'application/json'); };
+document.addEventListener('click',function(e){
+  if(e.target&&e.target.id==='ex_kml_all'){
+    if(!all().length){ alert('No data loaded yet'); return; }
+    dl('Voltline_ALL_'+stamp()+'.kml', buildKMLall(), 'application/vnd.google-earth.kml+xml');
+  }
+});
+function summaryRows(){
+  var sel=$('#zonesel');
+  var codes=Object.keys(packs).filter(function(c){return !sel.value||zoneOf(c)===sel.value;});
+  var R=[]; codes.forEach(function(c){R=R.concat(packs[c].records||[]);});
+  var P=R.filter(function(r){return r.type==='pole';}), C=R.filter(function(r){return r.type==='cust';});
+  var keep={}; P.forEach(function(p){keep[p.props['Pole_Numbe']]=1;});
+  var S=spans().filter(function(sp){return keep[sp.To_Pole];});
+  var svc={},cond={},cls={},asm={},typ={};
+  C.forEach(function(c){ svc[c.props['Service_Cable']||'not recorded']=(svc[c.props['Service_Cable']||'not recorded']||0)+(num(c.props['REAL LENGTH OF SERVICE CABLE'])||0);
+    typ[c.props['TYPE OF CUSTOMMER']||'not recorded']=(typ[c.props['TYPE OF CUSTOMMER']||'not recorded']||0)+1;});
+  S.forEach(function(sp){cond[sp.Conductor||'not recorded']=(cond[sp.Conductor||'not recorded']||0)+sp.Length_m;});
+  P.forEach(function(p){cls[p.props['Wooden_Pol']||'not recorded']=(cls[p.props['Wooden_Pol']||'not recorded']||0)+1;
+    asm[p.props['Assembly']||'not recorded']=(asm[p.props['Assembly']||'not recorded']||0)+1;});
+  function sum(o){var t=0;for(var k in o)t+=o[k];return t;}
+  function f1(v){return (Math.round((v||0)*10)/10).toFixed(1);}
+  var rows=[['No.','Description','Unit','Quantity'],['','TRF '+(sel.value||'All'),'','']];
+  rows.push(['1','Length of cable','','']);
+  Object.keys(svc).sort().forEach(function(k){rows.push(['','Service Cable('+k+')','m',f1(svc[k])]);});
+  rows.push(['','Total Service Cable','m',f1(sum(svc))]);
+  Object.keys(cond).sort().forEach(function(k){rows.push(['',(COND_LABEL[k]||k),'m',f1(cond[k])]);});
+  rows.push(['','Total Length of LV Lines','m',f1(sum(cond))]);
+  rows.push(['2','Number of LV poles','','']);
+  ['S100','S140','S190','S225','S255'].forEach(function(k){if(cls[k])rows.push(['',k,'pcs',cls[k]]);});
+  rows.push(['','Total Length of LV POLES','pcs',P.length]);
+  rows.push(['3','Infrastructures','','']);
+  Object.keys(typ).sort().forEach(function(k){rows.push(['',k,'pcs',typ[k]]);});
+  rows.push(['','TOTAL Customers','pcs',C.length]);
+  rows.push(['4','Assemblies','','']);
+  ASSEMBLY.forEach(function(k){rows.push(['',k,'pcs',asm[k]||0]);});
+  rows.push(['','Total number of poles','pcs',P.length]);
+  rows.push(['5','Earthing','pcs',P.filter(function(p){return p.props['Earthing']==='1';}).length]);
+  rows.push(['6','overhead stay','pcs',P.filter(function(p){return p.props['Flaying_st']==='1';}).length]);
+  rows.push(['7','Stay','pcs',P.filter(function(p){return p.props['STAY_ASSEM']==='1';}).length]);
+  rows.push(['8','single Phase','pcs',C.filter(function(c){return c.props['Meter Type']==='SINGLE PHASE';}).length]);
+  rows.push(['9','Three Phase','pcs',C.filter(function(c){return c.props['Meter Type']==='THREE PHASE';}).length]);
+  rows.push(['10','ReadyBord','pcs',C.filter(function(c){return c.props['READYBOARD']==='1';}).length]);
+  return rows;
+}
+document.addEventListener('click',function(e){
+  if(e.target&&e.target.id==='ex_summary'){
+    function q(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+    var name=($('#zonesel').value||'All').split(' ')[0];
+    dl('SUMMARY_'+name.replace(/[^A-Za-z0-9]/g,'')+'_'+stamp()+'.csv',
+       summaryRows().map(function(r){return r.map(q).join(',');}).join('\n'),'text/csv');
+  }
+});
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+load(); render();
+</script>
+</body>
+</html>
